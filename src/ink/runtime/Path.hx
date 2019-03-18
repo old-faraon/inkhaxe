@@ -11,11 +11,11 @@ class Path extends RObject implements IEquatable//<Path>
 {
 	public static var parentId:String = "^";  // should this be inlined as  constant?
 
-	
 
-	
 
-	
+
+
+
 	public function PathByAppendingPath(pathToAppend:Path):Path
 	{
 		var p:Path = new Path ();
@@ -40,12 +40,12 @@ class Path extends RObject implements IEquatable//<Path>
 		return p;
 	}
 
-	
-	
+
+
 	public var components:Array<Component>;  //{ get; private set; }
 	public var isRelative:Bool; // { get; private set; }
 	public var head(get, null):Component;
-	function get_head():Component 
+	function get_head():Component
 	{
 		if (components.length > 0) {
 			return components[0]; // .First ();
@@ -54,28 +54,28 @@ class Path extends RObject implements IEquatable//<Path>
 		}
 	}
 	public var tail(get, null):Path;
-	function get_tail():Path 
+	function get_tail():Path
 	{
-		
+
 		if (components.length >= 2) {
 			// careful, the original code uses length-1 here. This is because the second argument of List.GetRange is a number of elements to extract, wherease Array.slice uses an index
 			var tailComps:Array<Component>  = components.slice(1, components.length); //  components.GetRange (1, components.Count - 1);
 			return  Path.createFromComponents(tailComps);
-		} 
+		}
 		else {
 			return Path.self;
 		}
 	}
 
 	public var length(get, null):Int;
-	function get_length():Int 
+	function get_length():Int
 	{
 		return components.length;
 	}
-	
-	
+
+
 	public var  lastComponent(get, null):Component;
-	function get_lastComponent():Component 
+	function get_lastComponent():Component
 	{
 		if (components.length > 0) {
 			return components[components.length - 1];// components.Last ();
@@ -84,9 +84,9 @@ class Path extends RObject implements IEquatable//<Path>
 		}
 	}
 
-	
+
 	public var containsNamedComponent(get, null):Bool;
-	function get_containsNamedComponent():Bool 
+	function get_containsNamedComponent():Bool
 	{
 	  for( comp in components) {
 			if( !comp.isIndex ) {
@@ -95,14 +95,14 @@ class Path extends RObject implements IEquatable//<Path>
 		}
 		return false;
 	}
-	
+
 	// Constructors done
-	public function new() 
+	public function new()
 	{
 		super();
 		components = new Array<Component> ();
 	}
-	
+
 	public static function createFromHeadAndTail( head:Component,  tail:Path):Path
 	{
 		var me = new Path();
@@ -110,9 +110,9 @@ class Path extends RObject implements IEquatable//<Path>
 		LibUtil.addRangeForArray(me.components, tail.components); //me.components.addRange(tail.components);
 		return me;
 	}
-	
+
 	//IEnumerable<Component>
-	
+
 	public static function createFromComponents(components:Array<Component>,  relative:Bool = false):Path
 	{
 		var me = new Path();
@@ -120,41 +120,41 @@ class Path extends RObject implements IEquatable//<Path>
 		me.isRelative = relative;
 		return me;
 	}
-	
-	
+
+
 	public static function createFromComponentStack(components:GenericStack<Component>,  relative:Bool = false):Path
 	{
 		var me = new Path();
 
 		 //me.components.AddRange(components);
 		for (c in components) {
-			
+
 			me.components.push(c);
 		}
-	
+
 		me.isRelative = relative;
 		return me;
 	}
-		
+
 	public static function createFromString(componentsString:String):Path {
 		var me = new Path();
 		me.componentsString = componentsString;
 		return me;
-		
+
 	}
-	
+
 	//----
-	
+
 	public static var self(get, null):Path;
-	static function get_self():Path 
+	static function get_self():Path
 	{
 		var path = new Path();
 		path.isRelative = true;
 		return path;
 	}
-	
+
 	public var componentsString(get,  set):String;
-	public function get_componentsString():String 
+	public function get_componentsString():String
 	{
 		   var compsStr = components.join("."); // StringExt.Join(".", components); //StringExt.Join (".", components);
 			if (isRelative)
@@ -162,11 +162,11 @@ class Path extends RObject implements IEquatable//<Path>
 			else
 				return compsStr;
 	}
-	function set_componentsString(value:String ):String 
+	function set_componentsString(value:String ):String
 	{
 		//components.Clear();
 		LibUtil.clearArray(components);
-		
+
 		var componentsStr = value;
 
 		// Empty path, empty components
@@ -195,28 +195,28 @@ class Path extends RObject implements IEquatable//<Path>
 				components.push ( Component.createFromName(str));
 			}
 		}
-	
+
 		//value = get_componentsString();
 		//trace("Final value:" + value);
-		
+
 		return value;
 	}
-	
-	
-	public function toString ():String
+
+
+	@:keep public function toString ():String
 	{
 		 return componentsString;
 	}
-	
-	
-	
+
+
+
 	public override function Equals(obj:Dynamic):Bool
 	{
 		return EqualsPath(LibUtil.as(obj,Path));
 	}
-	
-	
-	
+
+
+
 	public function EqualsPath(otherPath:Path):Bool
 	{
 		if (otherPath == null)
@@ -230,8 +230,8 @@ class Path extends RObject implements IEquatable//<Path>
 
 		return LibUtil.arraySequenceEquals(otherPath.components, this.components);// otherPath.components.SequenceEqual(this.components);
 	}
-	
-	
+
+
 	/*
 	public override function GetHashCode():Int
 	{
@@ -242,7 +242,7 @@ class Path extends RObject implements IEquatable//<Path>
 	}
 	*/
 
-	
+
 }
 
 class Component implements IEquatable
@@ -251,26 +251,26 @@ class Component implements IEquatable
 	public var index:Int;  //x { get; private set; }
 	public var name:String;  //  { get; private set; }
 
-	public var isIndex(get, null):Bool;	
-	function get_isIndex():Bool 
+	public var isIndex(get, null):Bool;
+	function get_isIndex():Bool
 	{
 		return index >=0;
 	}
 	public var isParent(get, null):Bool;
-	function get_isParent():Bool 
+	function get_isParent():Bool
 	{
 		return name == Path.parentId;
 	}
-	
-	
+
+
 	// constructors done only
 	public function new( )
 	{
-		
+
 	}
 
 	public static function createFromIndex(index:Int):Component {
-		
+
 		var me = new Component();
 		Assert.bool(index >= 0, "assertion failed index >=0");
 		me.index = index;
@@ -289,13 +289,13 @@ class Component implements IEquatable
 
 
 	// -------
-	
+
 	static public function ToParent() :Component
 	{
 		return  Component.createFromName(Path.parentId);
 	}
-	
-	public function toString():String {
+
+	@:keep public function toString():String {
 		if (isIndex) {
 			return Std.string(index); // .ToString ();
 		} else {
@@ -304,18 +304,18 @@ class Component implements IEquatable
 	}
 
 	/* INTERFACE ink.runtime.IEquatable.IEquatable<T> */
-	
-	public function Equals(obj:Dynamic):Bool 
+
+	public function Equals(obj:Dynamic):Bool
 	{
 		  return EqualsComponent(LibUtil.as(obj,  Component) );
 	}
 
-	
+
 	 public function EqualsComponent( otherComp:Component):Bool
 	{
 		if (otherComp != null && otherComp.isIndex == this.isIndex) {
 			if (isIndex) {
-				return index == otherComp.index;   
+				return index == otherComp.index;
 			} else {
 				return name == otherComp.name;
 			}
@@ -324,6 +324,6 @@ class Component implements IEquatable
 	}
 
 
-			
-			
+
+
 }

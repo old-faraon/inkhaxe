@@ -1,33 +1,15 @@
 package ink.runtime;
-import haxe.ds.HashMap;
-import haxe.ds.ObjectMap;
 
-/**
- * ...
- * @author Glidias
- */
-class HashSet<K: {}> 
-{
-	var map:Map<K, Bool> = new Map<K, Bool>();
-	
-	public function new() 
-	{
-		
-	}
-	
-	public function add(key:K):Void {
-		map.set(key, true);
-	}
-	
-	public function keys() {
-		return map.keys();
-	}
-	
-	public function contains(key:K):Bool {
-		return map.exists(key);
-	}
-	
-	
-	
-	
+abstract HashSet<K: {}>(Map<K, Bool>) {
+	public inline function new()
+		this = new Map<K, Bool>();
+
+	public inline function add( key: K )
+		this.set(key, true);
+
+	public inline function keys()
+		return this.keys();
+
+	public inline function contains( key: K )
+		return this.exists(key);
 }

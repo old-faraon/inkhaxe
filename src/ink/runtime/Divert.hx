@@ -57,9 +57,9 @@ class Divert extends RObject
 		if (value == null) {
 			targetPath = null;
 		} else {
-			
+
 			targetPath =  Path.createFromString(value);
-			
+
 		}
 		return value;  //CompactPathString??
 	}
@@ -93,7 +93,7 @@ class Divert extends RObject
 		return me;
 	}
 
-	public override function Equals ( obj:Dynamic):Bool
+	public override function Equals (obj:Dynamic):Bool
 	{
 		var otherDivert = LibUtil.as(obj,Divert);
 		if (otherDivert!=null) {

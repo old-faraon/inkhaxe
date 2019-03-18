@@ -22,7 +22,7 @@ class StoryState
 	/// </summary>
 	public static inline var kInkSaveStateVersion:Int = 4;
 	static var kMinCompatibleLoadVersion:Int = 4;
-	
+
 	/// <summary>
 	/// Exports the current state to json format, in order to save the game.
 	/// </summary>
@@ -30,7 +30,7 @@ class StoryState
 	 public function ToJson():String {
         return haxe.Json.stringify(jsonToken); //SimpleJson.DictionaryToText (jsonToken);
     }
-	
+
 	/// <summary>
 	/// Loads a previously saved state in JSON format.
 	/// </summary>
@@ -39,15 +39,15 @@ class StoryState
 	{
 		jsonToken = haxe.Json.parse(json );  //SimpleJson.TextToDictionary (json);
 	}
-	
-	
+
+
 	/// <summary>
 	/// Gets the visit/read count of a particular Container at the given path.
 	/// For a knot or stitch, that path string will be in the form:
-	/// 
+	///
 	///     knot
 	///     knot.stitch
-	/// 
+	///
 	/// </summary>
 	/// <returns>The number of times the specific knot or stitch has
 	/// been enountered by the ink engine.</returns>
@@ -61,17 +61,17 @@ class StoryState
 
 		return 0;
 	}
-	
+
 	// REMEMBER! REMEMBER! REMEMBER!
 	// When adding state, update the Copy method, and serialisation.
 	// REMEMBER! REMEMBER! REMEMBER!
 
 	public var  outputStream(get, null):Array<RObject>; //{ get { } }
-	function get_outputStream():Array<RObject> 
+	function get_outputStream():Array<RObject>
 	{
 		 return _outputStream;
 	}
-	
+
 	public var currentChoices: List<Choice>; //{ get; private set; }
 	public var  currentErrors:List<String>; //{ get; private set; }
 	public var  variablesState:VariablesState; //{ get; private set; }
@@ -82,20 +82,21 @@ class StoryState
 	public var turnIndices:Map<String, Int>;// { get; private set; }
 	public var  currentTurnIndex:Int; // { get; private set; }
 	public var  storySeed:Int;  //{ get; private set; }
+	public var previousRandom:Int; // { get; set; }
 	public var  didSafeExit:Bool;// { get; set; }
-	
+
 	public var story:Story;// { get; set; }
-	
+
 	public var  currentPath(get, set):Path;
-	function get_currentPath():Path 
+	function get_currentPath():Path
 	{
 		if (currentContentObject == null)
 			return null;
 
-	
+
 		return currentContentObject.path;
 	}
-	function set_currentPath(value:Path):Path 
+	function set_currentPath(value:Path):Path
 	{
 		if (value != null)
 			currentContentObject = story.ContentAtPath (value);
@@ -103,26 +104,26 @@ class StoryState
 			currentContentObject = null;
 		return currentContentObject != null ? currentContentObject.path : null;
 	}
-	
+
 	public var  currentContentObject(get, set):RObject;
-	function get_currentContentObject():RObject 
+	function get_currentContentObject():RObject
 	{
 			return callStack.currentElement.currentObject;
 	}
-	function set_currentContentObject(value:RObject):RObject 
+	function set_currentContentObject(value:RObject):RObject
 	{
 		callStack.currentElement.currentObject = value;
 		return value;
 	}
-	
-	
+
+
 	public var  currentContainer(get, null):Container;
-	function get_currentContainer():Container 
+	function get_currentContainer():Container
 	{
 	   return callStack.currentElement.currentContainer;
 	}
 
-	
+
 	public var previousContentObject(get, set):RObject;
 	function get_previousContentObject():RObject {
 		return callStack.currentThread.previousContentObject;
@@ -131,13 +132,33 @@ class StoryState
 		callStack.currentThread.previousContentObject = value;
 		return value;
 	}
-	
-		
+
+
 	public var  hasError(get, null):Bool;
 	function get_hasError():Bool {
 		return currentErrors != null && currentErrors.length > 0;
 	}
-	
+
+	public var currentTags(get, null): List<String>;
+	var _currentTags: List<String>;
+	function get_currentTags() {
+		if (_outputStreamTagsDirty) {
+			_currentTags = new List<String>();
+
+			for (outputObj in _outputStream) {
+				var tag = LibUtil.as(outputObj, Tag);
+
+				if (tag != null) {
+					_currentTags.add(tag.text);
+				}
+			}
+
+			_outputStreamTagsDirty = false;
+		}
+
+		return _currentTags;
+	}
+
 
 	public var  currentText(get, null ):String;
 	function get_currentText():String {
@@ -152,7 +173,7 @@ class StoryState
 
 		return sb.toString ();
 	}
-	
+
 
 	public var  inExpressionEvaluation(get, set):Bool;
 	function get_inExpressionEvaluation():Bool {
@@ -162,21 +183,22 @@ class StoryState
 		callStack.currentElement.inExpressionEvaluation = value;
 		return value;
 	}
-	
-	
 
-	
-	public function new(story:Story) 
+
+
+
+	public function new(story:Story)
 	{
 		 this.story = story;
 
 		_outputStream = new Array<RObject> ();
+		OutputStreamDirty();
 
 		evaluationStack = new Array<RObject> ();
 
 		callStack =  CallStack.createCallStack(story.rootContentContainer);
 		variablesState = new VariablesState (callStack);
-	
+
 
 		visitCounts = new Map<String, Int> ();
 		turnIndices = new Map<String, Int> ();
@@ -185,17 +207,18 @@ class StoryState
 		// Seed the shuffle random numbers
 		var timeSeed:Int = Std.int( Date.now().getTime() ); // DateTime.Now.Millisecond;
 		storySeed = Std.int(new ParkMiller(timeSeed).random())  % 100;// (new Random (timeSeed)).Next () % 100;
+		previousRandom = 0;
 
 		currentChoices = new List<Choice> ();
 
 		GoToStart();
 	}
-	
+
 	function GoToStart(){
 		this.callStack.currentElement.currentContainer = this.story.mainContentContainer;
         this.callStack.currentElement.currentContentIndex = 0;
 	}
-	
+
 	// Warning: Any Runtime.Object content referenced within the StoryState will
 	// be re-referenced rather than cloned. This is generally okay though since
 	// Runtime.Objects are treated as immutable after they've been set up.
@@ -204,21 +227,22 @@ class StoryState
 	public function Copy():StoryState
 	{
 		var copy = new StoryState(story);
-		
+
 		LibUtil.addRangeForArray(copy.outputStream, _outputStream); //copy.outputStream.AddRange(_outputStream);
+		OutputStreamDirty();
 		LibUtil.addRangeForList(copy.currentChoices, currentChoices); //copy.currentChoices.AddRange(currentChoices);
 
 		if (hasError) {
 			copy.currentErrors = new List<String> ();
-			LibUtil.addRangeForList(copy.currentErrors, currentErrors); // copy.currentErrors.AddRange (currentErrors); 
+			LibUtil.addRangeForList(copy.currentErrors, currentErrors); // copy.currentErrors.AddRange (currentErrors);
 		}
-		
+
 		copy.callStack =  CallStack.createCallStack2 (callStack);
 
 		copy._currentRightGlue = _currentRightGlue;
 
 		copy.variablesState = new VariablesState (copy.callStack);
-		
+
 
 		copy.variablesState.CopyFrom (variablesState);
 
@@ -231,11 +255,12 @@ class StoryState
 
 		//var cloner:Cloner = new Cloner();
 		copy.visitCounts = LibUtil.cloneStrIntMap(visitCounts); //cloner.clone(visitCounts );
-		
+
 		copy.turnIndices = LibUtil.cloneStrIntMap(turnIndices); //cloner.clone( turnIndices);
-	
+
 		copy.currentTurnIndex = currentTurnIndex;
 		copy.storySeed = storySeed;
+		copy.previousRandom = previousRandom;
 
 		copy.didSafeExit = didSafeExit;
 
@@ -248,8 +273,8 @@ class StoryState
 	/// But it may be useful to get the object representation so that you
 	//// can integrate it into your own serialisation system.
 	/// </summary>
-	 var jsonToken(get, set):Dynamic; // Dictionary<string, object> 
-	function get_jsonToken():Dynamic 
+	 var jsonToken(get, set):Dynamic; // Dictionary<string, object>
+	function get_jsonToken():Dynamic
 	{
 		var obj = {};// new Dictionary<string, object> ();
 
@@ -268,7 +293,7 @@ class StoryState
 			if( choiceThreads != null )
 				Reflect.setField(obj, "choiceThreads", choiceThreads); // obj["choiceThreads"] = choiceThreads;
 
-			
+
 			Reflect.setField(obj, "callstackThreads", callStack.GetJsonToken());
 			Reflect.setField(obj, "variablesState" ,variablesState.jsonToken);
 
@@ -279,8 +304,8 @@ class StoryState
 			Reflect.setField(obj, "currentChoices", Json.ListToJArray (currentChoices));
 
 			if (_currentRightGlue!=null) {
-				
-				var rightGluePos:Int = _outputStream.indexOf(_currentRightGlue); 
+
+				var rightGluePos:Int = _outputStream.indexOf(_currentRightGlue);
 				if( rightGluePos != -1 ) {
 					Reflect.setField(obj, "currRightGlue", rightGluePos);// = _outputStream.IndexOf (_currentRightGlue);
 				}
@@ -293,6 +318,28 @@ class StoryState
 			Reflect.setField(obj,"turnIndices", Json.IntDictionaryToJObject (turnIndices));
 			Reflect.setField(obj,"turnIdx", currentTurnIndex);
 			Reflect.setField(obj,"storySeed", storySeed);
+			// Reflect.setField(obj,'previousRandom', previousRandom);
+
+			// !!!!!!!!!!!
+                // previousRandom = (int)jObject ["previousRandom"];
+
+				// object jChoiceThreadsObj = null;
+				// jObject.TryGetValue("choiceThreads", out jChoiceThreadsObj);
+				// var jChoiceThreads = (Dictionary<string, object>)jChoiceThreadsObj;
+
+				// foreach (var c in _currentChoices) {
+				// 	c.choicePoint = (ChoicePoint) story.ContentAtPath (new Path (c.originalChoicePath));
+
+				// 	var foundActiveThread = callStack.ThreadWithIndex(c.originalThreadIndex);
+				// 	if( foundActiveThread != null ) {
+				// 		c.threadAtGeneration = foundActiveThread;
+				// 	} else {
+				// 		var jSavedChoiceThread = (Dictionary <string, object>) jChoiceThreads[c.originalThreadIndex.ToString()];
+				// 		c.threadAtGeneration = new CallStack.Thread(jSavedChoiceThread, story);
+				// 	}
+				// }
+
+
 
 			Reflect.setField(obj,"inkSaveVersion", kInkSaveStateVersion);
 
@@ -301,13 +348,13 @@ class StoryState
 
 			return obj;
 	}
-	
-	function set_jsonToken(value:Dynamic):Dynamic 
+
+	function set_jsonToken(value:Dynamic):Dynamic
 	{
 		var jObject = value;
 
 		var jSaveVersion:Dynamic = null;
-		jSaveVersion = LibUtil.tryGetValueDynamic(jObject, "inkSaveVersion"); 
+		jSaveVersion = LibUtil.tryGetValueDynamic(jObject, "inkSaveVersion");
 		if (jSaveVersion == null) {   //!jObject.TryGetValue("inkSaveVersion", out jSaveVersion)
 			throw new StoryException ("ink save format incorrect, can't load.");
 		}
@@ -316,14 +363,15 @@ class StoryState
 		}
 
 		callStack.SetJsonToken( Reflect.field(jObject, "callstackThreads"), story);  // ((Dictionary < string, object > )j
-		
-		
-	
+
+
+
 		variablesState.jsonToken = Reflect.field(jObject, "variablesState");  //(Dictionary < string, object> )
 
 		evaluationStack = Json.JArrayToRuntimeObjArray( Reflect.field(jObject,"evalStack"));  //((List<object>)
 
 		_outputStream = Json.JArrayToRuntimeObjArray( Reflect.field(jObject,"outputStream"));  //((List<object>)
+		OutputStreamDirty();
 
 		// tocheck: this cast should hopefully not yield problems on all targets..
 		currentChoices = cast Json.JArrayToRuntimeObjList( Reflect.field(jObject,"currentChoices"));  //<Choice>((List<object>)
@@ -343,11 +391,12 @@ class StoryState
 			var divertPath =  Path.createFromString( Std.string(currentDivertTargetPath) );
 			divertedTargetObject = story.ContentAtPath (divertPath);
 		}
-			
+
 		visitCounts = Json.JObjectToIntDictionary ( Reflect.field(jObject,"visitCounts"));  //(Dictionary<string, object>)
 		turnIndices = Json.JObjectToIntDictionary (Reflect.field(jObject,"turnIndices"));  //(Dictionary<string, object>)
 		currentTurnIndex = Std.int( Reflect.field(jObject,"turnIdx"));  //(int)
 		storySeed = Std.int( Reflect.field(jObject,"storySeed"));  //(int)
+		previousRandom = Std.int(Reflect.field(jObject,'previousRandom')); //(int)
 
 		var jChoiceThreadsObj:Dynamic = null;
 		jChoiceThreadsObj = Reflect.field(jObject, "choiceThreads");  //jObject.TryGetValue("choiceThreads", out jChoiceThreadsObj);
@@ -364,21 +413,22 @@ class StoryState
 				c.threadAtGeneration =  Thread.create(jSavedChoiceThread, story);
 			}
 		}
-		
+
 		return value;
 	}
-	
+
 
 	public function ResetErrors():Void
 	{
 		currentErrors = null;
 	}
-		
+
 	public function ResetOutput():Void
 	{
 		LibUtil.clearArray(_outputStream); // _outputStream.clear();
+		OutputStreamDirty();
 	}
-	
+
 	// Push to output stream, but split out newlines in text for consistency
 	// in dealing with them later.
 	public function PushToOutputStream( obj:RObject):Void
@@ -395,20 +445,21 @@ class StoryState
 		}
 
 		PushToOutputStreamIndividual (obj);
+		OutputStreamDirty();
 	}
-	
+
 	// At both the start and the end of the string, split out the new lines like so:
 	//
 	//  "   \n  \n     \n  the string \n is awesome \n     \n     "
 	//      ^-----------^                           ^-------^
-	// 
+	//
 	// Excess newlines are converted into single newlines, and spaces discarded.
-	// Outside spaces are significant and retained. "Interior" newlines within 
+	// Outside spaces are significant and retained. "Interior" newlines within
 	// the main string are ignored, since this is for the purpose of gluing only.
 	//
 	//  - If no splitting is necessary, null is returned.
 	//  - A newline on its own is returned in an list for consistency.
-	function TrySplittingHeadTailWhitespace( single:StringValue):List<StringValue> 
+	function TrySplittingHeadTailWhitespace( single:StringValue):List<StringValue>
 	{
 		var str:String = single.value;
 
@@ -430,7 +481,7 @@ class StoryState
 		var tailLastNewlineIdx:Int = -1;
 		var tailFirstNewlineIdx:Int = -1;
 		for (i in 0...str.length) { //int i = 0; i < str.Length; ++i
-			var c = str.charAt(i);// [i]; 
+			var c = str.charAt(i);// [i];
 			if (c == '\n') {
 				if (tailLastNewlineIdx == -1)
 					tailLastNewlineIdx = i;
@@ -445,7 +496,7 @@ class StoryState
 		// No splitting to be done?
 		if (headFirstNewlineIdx == -1 && tailLastNewlineIdx == -1)
 			return null;
-			
+
 		var listTexts = new List<StringValue> ();
 		var innerStrStart = 0;
 		var innerStrEnd = str.length;
@@ -480,7 +531,7 @@ class StoryState
 		return listTexts;
 	}
 
-	
+
 	function PushToOutputStreamIndividual( obj:RObject):Void
 	{
 		var glue = LibUtil.as(obj, Glue);
@@ -489,14 +540,14 @@ class StoryState
 		var includeInOutput = true;
 
 		if (glue!=null) {
-			
+
 			// Found matching left-glue for right-glue? Close it.
 			var foundMatchingLeftGlue = glue.isLeft && _currentRightGlue!= null && glue.parent == _currentRightGlue.parent;
 			if (foundMatchingLeftGlue) {
 				_currentRightGlue = null;
 			}
 
-			// Left/Right glue is auto-generated for inline expressions 
+			// Left/Right glue is auto-generated for inline expressions
 			// where we want to absorb newlines but only in a certain direction.
 			// "Bi" glue is written by the user in their ink with <>
 			if (glue.isLeft || glue.isBi) {
@@ -522,9 +573,9 @@ class StoryState
 				if (text.isNewline) {
 					TrimFromExistingGlue ();
 					includeInOutput = false;
-				} 
+				}
 
-				// Able to completely reset when 
+				// Able to completely reset when
 				else if (text.isNonWhitespace) {
 					RemoveExistingGlue ();
 					_currentRightGlue = null;
@@ -538,9 +589,11 @@ class StoryState
 		if (includeInOutput) {
 			_outputStream.push (obj);
 		}
+
+		OutputStreamDirty();
 	}
 
-	
+
 	function TrimNewlinesFromOutputStream( stopAndRemoveRightGlue:Bool):Void
 	{
 		var removeWhitespaceFrom = -1;
@@ -584,22 +637,28 @@ class StoryState
 			}
 		}
 
+// TODO (DK) logic changed, it's some while loop now
+
 		// Remove the glue (it will come before the whitespace,
 		// so index is still valid)
 		if (stopAndRemoveRightGlue && rightGluePos > -1)
 			LibUtil.removeArrayItemAtIndex(outputStream, rightGluePos);// _outputStream.RemoveAt (rightGluePos);
+
+		OutputStreamDirty();
 	}
 
 	function TrimFromExistingGlue():Void
 	{
 		var i = currentGlueIndex;
 		while (i < _outputStream.length) {
-			var txt =  LibUtil.as( LibUtil.getArrayItemAtIndex(_outputStream, i) , StringValue); // _outputStream [i] 
+			var txt =  LibUtil.as( LibUtil.getArrayItemAtIndex(_outputStream, i) , StringValue); // _outputStream [i]
 			if (txt!=null && !txt.isNonWhitespace)
 				LibUtil.removeArrayItemAtIndex(_outputStream, i); // _outputStream.RemoveAt (i);
 			else
 				i++;
 		}
+
+		OutputStreamDirty();
 	}
 
 
@@ -608,7 +667,7 @@ class StoryState
 	{
 		//int i = _outputStream.Count - 1; i >= 0; i--
 		var i = outputStream.length;
-		
+
 		while (i>=0) {
 			var c = _outputStream [i];
 			if (Std.is(c , Glue)) {
@@ -618,13 +677,15 @@ class StoryState
 			}
 			i--; // continuing...
 		}
+
+		OutputStreamDirty();
 	}
-	
-	
-	
+
+
+
 
 	var currentGlueIndex(get, null):Int;
-	function get_currentGlueIndex():Int 
+	function get_currentGlueIndex():Int
 	{
 		//int i = _outputStream.Count - 1; i >= 0; i--
 			var i = _outputStream.length - 1;
@@ -639,10 +700,10 @@ class StoryState
 				i--; // continuing...
 			}
 			return -1;
-			
+
 	}
-	
-	
+
+
 	public var  outputStreamEndsInNewline(get, null):Bool;
 	function get_outputStreamEndsInNewline():Bool {
 		if (_outputStream.length > 0) {
@@ -665,7 +726,7 @@ class StoryState
 
 		return false;
 	}
-	
+
 
 	var  outputStreamContainsContent(get, null):Bool;
 	function get_outputStreamContainsContent():Bool {
@@ -677,9 +738,9 @@ class StoryState
 	}
 
 
-	public var  inStringEvaluation(get, null):Bool; 
+	public var  inStringEvaluation(get, null):Bool;
 	function get_inStringEvaluation():Bool {
-		
+
 		//int i = _outputStream.Count - 1; i >= 0; i--
 		var i:Int = _outputStream.length - 1;
 		while (i>=0) {
@@ -692,7 +753,7 @@ class StoryState
 
 		return false;
 	}
-	
+
 
 	public function  PushEvaluationStack(obj:RObject):Void
 	{
@@ -704,7 +765,7 @@ class StoryState
 		//var obj =  evaluationStack [evaluationStack.length - 1];
 		//evaluationStack.pop(); // evaluationStack.RemoveAt (evaluationStack.length - 1);
 		//return obj;
-		
+
 		return evaluationStack.pop();
 	}
 
@@ -760,13 +821,19 @@ class StoryState
 
 		currentErrors.add (message);
 	}
-	
-		
+
+	function OutputStreamDirty() {
+		_outputStreamTextDirty = true;
+		_outputStreamTagsDirty = true;
+	}
+
 	// REMEMBER! REMEMBER! REMEMBER!
 	// When adding state, update the Copy method and serialisation
 	// REMEMBER! REMEMBER! REMEMBER!
-		
+
 	var _outputStream:Array<RObject>;  // formerly list. consider: after everything's done. de.polydonal.ds List implementation
+	var _outputStreamTextDirty = true;
+	var _outputStreamTagsDirty = true;
 	var _currentRightGlue:Glue;
-	
+
 }

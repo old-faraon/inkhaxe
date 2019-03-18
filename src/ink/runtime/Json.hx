@@ -22,7 +22,7 @@ class Json
 		}
 		return jArray;
 	}
-	
+
 	public static inline function ArrayToJArray<T:RObject>(serialisables:Array<T>):Array<Dynamic> {
 		 var jArray = new Array<Dynamic>();
 		for (s in serialisables) {
@@ -30,7 +30,7 @@ class Json
 		}
 		return jArray;
 	}
-	
+
 	public static function JArrayToRuntimeObjList(jArray:Array<Dynamic>, skipLast:Bool=false):List<RObject>
 	{
 		var count:Int = jArray.length;
@@ -47,7 +47,7 @@ class Json
 
 		return list;
 	}
-	
+
 	public static function JArrayToRuntimeObjArray(jArray:Array<Dynamic>, skipLast:Bool=false):Array<RObject>
 	{
 		var count:Int = jArray.length;
@@ -55,24 +55,24 @@ class Json
 			count--;
 
 		var list = new Array<RObject>();  //jArray.Count
-		
+
 		for (i in 0...count) {
 			var jTok = jArray[i];
 			var runtimeObj = LibUtil.as( JTokenToRuntimeObject (jTok), RObject);
-	
+
 			list.push(runtimeObj);
 		}
 
 		return list;
 	}
-	
-	
-	
-	
+
+
+
+
 	 public static function DictionaryRuntimeObjsToJObject(dictionary:Map<String, RObject>):Dynamic
 	{
 		var jsonObj = {};
-	
+
 		for (k in dictionary.keys()) {
 			var runtimeObj = LibUtil.as( dictionary.get(k), RObject);
 			if (runtimeObj != null) {
@@ -83,19 +83,19 @@ class Json
 
 		return jsonObj;
 	}
-	
+
 	 public static function JObjectToDictionaryRuntimeObjs(jObject:Dynamic):Map<String, RObject>
 	{
 		var dict = new Map<String, RObject>();  //jObject.Count
-		
+
 		for (k in Reflect.fields(jObject)) {
 			dict.set(k, JTokenToRuntimeObject(Reflect.field(jObject, k)));
-		
+
 		}
 
 		return dict;
 	}
-	
+
 	public static function JObjectToIntDictionary(jObject:Dynamic ):Map<String,Int>
 	{
 		var dict = new Map<String, Int>();  //jObject.Count
@@ -104,7 +104,7 @@ class Json
 		}
 		return dict;
 	}
-	
+
 	public static function IntDictionaryToJObject(dict:Map<String, Int>):Dynamic
 	{
 		var jObj = {};
@@ -113,69 +113,69 @@ class Json
 		}
 		return jObj;
 	}
-	
+
 	  // ----------------------
         // JSON ENCODING SCHEME
         // ----------------------
         //
         // Glue:           "<>", "G<", "G>"
-        // 
-        // ControlCommand: "ev", "out", "/ev", "du" "pop", "->->", "~ret", "str", "/str", "nop", 
+        //
+        // ControlCommand: "ev", "out", "/ev", "du" "pop", "->->", "~ret", "str", "/str", "nop",
         //                 "choiceCnt", "turns", "visit", "seq", "thread", "done", "end"
-        // 
+        //
         // NativeFunction: "+", "-", "/", "*", "%" "~", "==", ">", "<", ">=", "<=", "!=", "!"... etc
-        // 
+        //
         // Void:           "void"
-        // 
+        //
         // Value:          "^string value", "^^string value beginning with ^"
         //                 5, 5.2
         //                 {"^->": "path.target"}
         //                 {"^var": "varname", "ci": 0}
-        // 
+        //
         // Container:      [...]
-        //                 [..., 
+        //                 [...,
         //                     {
-        //                         "subContainerName": ..., 
+        //                         "subContainerName": ...,
         //                         "#f": 5,                    // flags
         //                         "#n": "containerOwnName"    // only if not redundant
         //                     }
         //                 ]
-        // 
+        //
         // Divert:         {"->": "path.target", "c": true }
         //                 {"->": "path.target", "var": true}
         //                 {"f()": "path.func"}
         //                 {"->t->": "path.tunnel"}
         //                 {"x()": "externalFuncName", "exArgs": 5}
-        // 
+        //
         // Var Assign:     {"VAR=": "varName", "re": true}   // reassignment
         //                 {"temp=": "varName"}
-        // 
+        //
         // Var ref:        {"VAR?": "varName"}
         //                 {"CNT?": "stitch name"}
-        // 
+        //
         // ChoicePoint:    {"*": pathString,
         //                  "flg": 18 }
         //
         // Choice:         Nothing too clever, it's only used in the save state,
-        //       
+        //
 	public static function JTokenToRuntimeObject(token:Dynamic):RObject {
-		
-		
+
+
 		// why is JS so wierd to think of \n as a number?!?? Let it slide?
 		if ( (Std.is(token, Int) || Std.is(token, Float) )  ) {
 			//if (Type.typeof(token) == Type.ValueType.TInt
 			return Value.Create(token);
 		}
-		
+
 		if  ( Std.is(token, String)  ) {
-			
+
 			var str:String =  Std.string(token);
 			// String value
 			var firstChar:String = str.charAt(0);
 			if (firstChar == '^') {
 				return new StringValue(str.substring(1));
 			}
-			else if ( (firstChar == '\n' && str.length == 1) || token == "\n" ) {  
+			else if ( (firstChar == '\n' && str.length == 1) || token == "\n" ) {
 				return new StringValue ("\n");
 			}
 
@@ -194,7 +194,7 @@ class Json
 					var cmdType:CommandType = cast i;
 					return  ControlCommand.createFromCommandType(cast i);
 				}
-				
+
 			}
 
 			// Native functions
@@ -210,11 +210,11 @@ class Json
 			// Void
 			if (str == "void")
 				return new VoidObj();
-				
-			trace("Failed to resolve String type!");	
+
+			trace("Failed to resolve String type!");
 		}
-		
-		
+
+
 		// Array is always a Runtime.Container
 		if (Std.is(token, Array )) {  //(List<object>
 			return JArrayToContainer( token);
@@ -242,17 +242,17 @@ class Json
 			var pushesToStack = false;
 			var divPushType = PushPopType.Function;
 			var external = false;
-			
+
 			propValue = LibUtil.tryGetValueDynamic(obj, "->");
 			if (propValue!=null) {
 				isDivert = true;
-				
+
 			}
 			else if ( (propValue=LibUtil.tryGetValueDynamic(obj, "f()") )!=null ) { //obj.TryGetValue ("f()", out propValue)
 				isDivert = true;
 				pushesToStack = true;
 				divPushType = PushPopType.Function;
-			} 
+			}
 			else if (   (propValue=LibUtil.tryGetValueDynamic(obj, "->t->") )!=null )  {   //obj.TryGetValue ("->t->", out propValue)
 				isDivert = true;
 				pushesToStack = true;
@@ -265,15 +265,15 @@ class Json
 				divPushType = PushPopType.Function;
 			}
 			if (isDivert) {
-			
+
 				var divert = new Divert ();
 				divert.pushesToStack = pushesToStack;
 				divert.stackPushType = divPushType;
 				divert.isExternal = external;
-					
+
 				var target = Std.string(propValue);
-			
-				if (  (propValue=LibUtil.tryGetValueDynamic(obj, "var") )!=null ) 
+
+				if (  (propValue=LibUtil.tryGetValueDynamic(obj, "var") )!=null )
 					divert.variableDivertName = target;
 				else {
 					divert.targetPathString = target;
@@ -285,14 +285,14 @@ class Json
 					if ( (propValue = LibUtil.tryGetValueDynamic(obj, "exArgs"))!=null )   //obj.TryGetValue ("exArgs", out propValue))
 						divert.externalArgs = Std.int(propValue);
 				}
-				
+
 				return divert;
 			}
-				
+
 			// Choice
 			if (   (propValue=LibUtil.tryGetValueDynamic(obj, "*") )!=null  ) {  // obj.TryGetValue ("*", out propValue)
 				var choice = new ChoicePoint ();
-					
+
 				choice.pathStringOnChoice = Std.string( propValue );
 
 				if ( (propValue=LibUtil.tryGetValueDynamic(obj, "flg") )!=null )  //obj.TryGetValue ("flg", out propValue)
@@ -328,9 +328,19 @@ class Json
 				return varAss;
 			}
 
+			// Tag
+			if ((propValue = LibUtil.tryGetValueDynamic(obj, '#')) != null) {
+				return new Tag(cast (propValue, String));
+			}
+
+			// List value
+			if ((propValue = LibUtil.tryGetValueDynamic(obj, 'list')) != null) {
+				return null;
+			}
+
 			if (Reflect.field(obj, "originalChoicePath") != null)
 				return JObjectToChoice(obj);
-				
+
 			trace("Failed to resolve TObject type!");
 		}
 
@@ -339,10 +349,10 @@ class Json
 		}
 
 		throw new SystemException ("Failed to convert token to runtime object: " + token + " :: "+Type.typeof(token) );
-		
+
 	}
-	
-	
+
+
 	public static function RuntimeObjectToJToken(obj:RObject):Dynamic
 	{
 		var container = LibUtil.as(obj, Container);
@@ -367,7 +377,7 @@ class Json
 				targetStr = divert.variableDivertName;
 			else {
 				targetStr = divert.targetPathString;
-	
+
 			}
 
 			var jObj:Dynamic= {};
@@ -403,7 +413,7 @@ class Json
 		var floatVal = LibUtil.as(obj, FloatValue);
 		if (floatVal!=null)
 			return floatVal.value;
-		
+
 		var strVal = LibUtil.as(obj, StringValue);
 		if (strVal!=null) {
 			if (strVal.isNewline)
@@ -418,8 +428,8 @@ class Json
 			Reflect.setField(divTargetJsonObj, "^->", divTargetVal.value.componentsString);
 			return divTargetJsonObj;
 		}
-		
-		var varPtrVal = LibUtil.as(obj, VariablePointerValue); 
+
+		var varPtrVal = LibUtil.as(obj, VariablePointerValue);
 		if (varPtrVal!=null) {
 			var varPtrJsonObj = {};
 			Reflect.setField(varPtrJsonObj, "^var", varPtrVal.value);
@@ -427,7 +437,7 @@ class Json
 			return varPtrJsonObj;
 		}
 
-		var glue =  LibUtil.as(obj, Glue);   
+		var glue =  LibUtil.as(obj, Glue);
 		if (glue!=null) {
 			if (glue.isBi)
 				return "<>";
@@ -437,9 +447,9 @@ class Json
 				return "G>";
 		}
 
-		var controlCmd =  LibUtil.as(obj, ControlCommand); 
+		var controlCmd =  LibUtil.as(obj, ControlCommand);
 		if (controlCmd!=null) {
-			return _controlCommandNames[cast controlCmd.commandType];  
+			return _controlCommandNames[cast controlCmd.commandType];
 		}
 
 		var nativeFunc = LibUtil.as(obj, NativeFunctionCall);
@@ -461,7 +471,7 @@ class Json
 		}
 
 		// Variable assignment
-		var varAss =LibUtil.as(obj, VariableAssignment); 
+		var varAss =LibUtil.as(obj, VariableAssignment);
 		if (varAss!=null) {
 			var key:String = varAss.isGlobal ? "VAR=" : "temp=";
 			var jObj = {};
@@ -473,24 +483,32 @@ class Json
 
 			return jObj;
 		}
-			
+
 		var voidObj = LibUtil.as(obj, VoidObj);
-		
+
 		if (voidObj!=null)
 			return "void";
+
+		// Tag
+		var tag = LibUtil.as(obj, Tag);
+		if (tag != null) {
+			var jObj = new Map<String, String>();
+			jObj.set("#", tag.text);
+			return jObj;
+		}
 
 		// Used when serialising save state only
 		var choice = LibUtil.as(obj, Choice);
 		if (choice!=null)
 			return ChoiceToJObject (choice);
 
-			
+
 		throw new SystemException ("Failed to convert runtime object to Json token: " + obj);
 	}
-	
-	
-	
-	
+
+
+
+
 	static function  ContainerToJArray(container:Container):Array<Dynamic> {
 			var jArray = ArrayToJArray (container.content);
 
@@ -500,9 +518,9 @@ class Json
             //    the key "#" with the count flags
             //  - null, if neither of the above
             var namedOnlyContent = container.namedOnlyContent;
-			
+
             var countFlags = container.countFlags;
-			
+
 			// namedOnlyContent.Count > 0
             if (namedOnlyContent != null && namedOnlyContent.iterator().hasNext()  || countFlags > 0 || container.name != null) {  // name being set is causing issues?
 
@@ -513,12 +531,12 @@ class Json
                     // Strip redundant names from containers if necessary
                     for (p in Reflect.fields(terminatingObj)) {
 						var namedContentObj = Reflect.field(terminatingObj, p);
-					
+
                         var subContainerJArray = LibUtil.as( Reflect.field(terminatingObj, p), Array); // namedContentObj.Value; // var subContainerJArray = namedContentObj.Value as List<object>;
                         if (subContainerJArray != null) {
-							
+
                             var attrJObj:Dynamic  = subContainerJArray[subContainerJArray.length - 1]; // LibUtil.as( subContainerJArray[subContainerJArray.length - 1], Map);
-                            if (attrJObj != null) {  
+                            if (attrJObj != null) {
 							   Reflect.deleteField(attrJObj, "#n"); // attrJObj.Remove ("#n");
                                 if (Reflect.fields(attrJObj).length == 0) //attrJObj.Count == 0
                                     subContainerJArray [subContainerJArray.length - 1] = null;
@@ -527,7 +545,7 @@ class Json
                     }
 
                 } else {
-			
+
                     terminatingObj =  {}; // new Dictionary<string, object> ();
 				}
                 if( countFlags > 0 )
@@ -535,17 +553,17 @@ class Json
 
                 if( container.name != null )
                      Reflect.setField(terminatingObj, "#n", container.name);//terminatingObj ["#n"] = container.name;
-					 
+
                 jArray.push(terminatingObj);
-            } 
+            }
             // Add null terminator to indicate that there's no dictionary
             else {
                 jArray.push(null);
             }
-			
+
 			return jArray;
 	}
-	
+
 	static function JArrayToContainer(jArray:Array<Dynamic>):Container  //List<object>
 	{
 		 var container = new Container ();
@@ -556,13 +574,13 @@ class Json
             //  - a "#" key with the countFlags
             // (if either exists at all, otherwise null)
             var terminatingObj:Dynamic = jArray [jArray.length - 1]; // as Dictionary<string, object>;
-			
+
             if (terminatingObj != null) {
 
                 var namedOnlyContent = new Map<String, RObject>();  //terminatingObj.Count
 
                 for (k in Reflect.fields(terminatingObj)) {
-		
+
                     if (k == "#f") {
                         container.countFlags = Std.int(Reflect.field(terminatingObj, k)); // (int) keyVal.Value;
                     } else if (k == "#n") {
@@ -577,14 +595,14 @@ class Json
                 }
 
                 container.namedOnlyContent = namedOnlyContent;
-				
+
             }
-			
+
 
             return container;
 	}
-	
-	static function JObjectToChoice(jObj:Dynamic):Choice  //Dictionary<string, object> 
+
+	static function JObjectToChoice(jObj:Dynamic):Choice  //Dictionary<string, object>
 	{
 		var choice = new Choice();
 		choice.text = Std.string(Reflect.field(jObj, "text")); // jObj ["text"].ToString();
@@ -594,7 +612,7 @@ class Json
 		return choice;
 	}
 
-	
+
 	static function ChoiceToJObject( choice:Choice):Dynamic
 	{
 		var jObj = {
@@ -603,7 +621,7 @@ class Json
 			originalChoicePath: choice.originalChoicePath,
 			originalThreadIndex: choice.originalThreadIndex
 		};
-		
+
 		/*
 		jObj ["text"] = choice.text;
 		jObj ["index"] = choice.index;
@@ -612,10 +630,10 @@ class Json
 		*/
 		return jObj;
 	}
-		
-	 
 
-	
+
+
+
 	 static var _controlCommandNames:Array<String> = {
 		 _controlCommandNames = new Array<String>(); // [CommandType.TOTAL_VALUES];
 		//	 _controlCommandNames.length
@@ -636,15 +654,17 @@ class Json
 		_controlCommandNames[cast CommandType.StartThread] = "thread";
 		_controlCommandNames[cast CommandType.Done] = "done";
 		_controlCommandNames[cast CommandType.End] = "end";
-		
-		
+		_controlCommandNames[cast CommandType.Random] = "rnd";
+		_controlCommandNames[cast CommandType.SeedRandom] = "srnd";
+
+
 		var len:Int  =  cast CommandType.TOTAL_VALUES;
 		for ( i in 0...len) {
 			 if (_controlCommandNames [i] == null)
                     throw new SystemException("Control command not accounted for in serialisation");
 		}
-		
+
 		_controlCommandNames;
 	 }
-	
+
 }

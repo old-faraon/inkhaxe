@@ -103,6 +103,14 @@ class ControlCommand extends RObject
             return ControlCommand.createFromCommandType(CommandType.End);
         }
 
+		public static function Random():ControlCommand {
+            return ControlCommand.createFromCommandType(CommandType.Random);
+        }
+
+		public static function SeedRandom():ControlCommand {
+            return ControlCommand.createFromCommandType(CommandType.SeedRandom);
+        }
+
         public inline  function ToString ():String  //override
         {
             return Std.string(commandType);  //.ToString()
@@ -160,5 +168,7 @@ abstract CommandType(Int)
 	var StartThread= 14;
 	var Done= 15;
 	var End= 16;
-	var TOTAL_VALUES = 17;
+	var Random= 17;
+	var SeedRandom= 18;
+	var TOTAL_VALUES = 19;
 }

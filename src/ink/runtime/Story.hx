@@ -1,25 +1,21 @@
 package ink.runtime;
-import haxe.ds.EnumValueMap;
+
 import haxe.ds.GenericStack;
 import haxe.ds.IntMap;
-import haxe.ds.StringMap;
 import ink.random.ParkMiller;
 import ink.runtime.Container;
-import ink.runtime.Value.DivertTargetValue;
-import ink.runtime.Value.IntValue;
-import ink.runtime.Value.StringValue;
-import ink.runtime.Value.VariablePointerValue;
+import ink.runtime.Value;
 import ink.runtime.js.JSProxy;
 
 
 /**
  * Done!
- * 
+ *
  * @author Glidias
  */
 
 //public delegate object ExternalFunction(object[] args);
-typedef ExternalFunction = Array<Dynamic>->Dynamic;	
+typedef ExternalFunction = Array<Dynamic>->Dynamic;
 
 
 // public delegate void VariableObserver(string variableName, object newValue);
@@ -28,12 +24,12 @@ typedef VariableObserver = String->Dynamic->Void;
 @:expose
 class Story extends RObject
 {
-	static public inline var inkVersionCurrent:Int = 12;
+	static public inline var inkVersionCurrent:Int = 17;
 	public static inline var inkVersionMinimumCompatible:Int = 12;
-	
-	
+
+
 	public var  currentChoices(get, null):Array<Choice>;
-	function get_currentChoices():Array<Choice> 
+	function get_currentChoices():Array<Choice>
 	{
 		// Don't include invisible choices for external usage.
 		var choices = new Array<Choice>();
@@ -42,59 +38,63 @@ class Story extends RObject
 				c.index = choices.length;
 				choices.push(c);
 			}
-			
+
 		}
 		return choices;
 	}
-	
+
 	public var currentText(get, null):String;
-	function get_currentText():String 
+	function get_currentText():String
 	{
 		return state.currentText;
 	}
-	
+
+	public var currentTags(get, null): List<String>;
+	inline function get_currentTags()
+		return state.currentTags;
+
 	public var currentErrors(get, null):List<String>;
-	function get_currentErrors():List<String> 
+	function get_currentErrors():List<String>
 	{
 		return state.currentErrors;
 	}
-	
+
 	public var hasErrorThrow(get, null):Bool;
-	function get_hasErrorThrow():Bool 
+	function get_hasErrorThrow():Bool
 	{
 		return state.hasError;
 	}
-	
+
 	public var variablesState(get, null):VariablesState;
 	//@:getter(variablesState)
-	function get_variablesState():VariablesState 
+	function get_variablesState():VariablesState
 	{
 		return state.variablesState;
 	}
-	
+
 	#if js
 	public function getVariableesStateProxy():JSProxy {
 		return state.variablesState.jsProxy;
 	}
 	#end
-	
+
 	public var state(get, null):StoryState;
 	//@:getter(state)
-	inline function get_state():StoryState 
+	inline function get_state():StoryState
 	{
 		return _state;
 	}
 	var _state:StoryState;
-	
-	
-	
-	public function new(jsonString:String) 
+
+
+
+	public function new(jsonString:String)
 	{
 		super();
 		setupFromContainer(null);
-		
+
 		var rootObject:Dynamic = haxe.Json.parse(jsonString); // StringMap<Dynamic> = LibUtil.jTokenToStringMap( haxe.Json.parse(jsonString) ); // SimpleJson.TextToDictionary(jsonString);
-		
+
 		var versionObj:Dynamic = Reflect.field(rootObject, "inkVersion");
 		if (versionObj == null)
 			throw new SystemException ("ink version number not found. Are you sure it's a valid .ink.json file?");
@@ -107,19 +107,19 @@ class Story extends RObject
 		} else if (formatFromFile != inkVersionCurrent) {
 			trace ("WARNING: Version of ink used to build story doesn't match current version of engine. Non-critical, but recommend synchronising.");
 		}
-			
+
 		var rootToken = Reflect.field(rootObject, "root");
 		if (rootToken == null)
 			throw new SystemException ("Root node for ink not found. Are you sure it's a valid .ink.json file?");
-		
-		
-		
-	
+
+
+
+
 		_mainContentContainer = LibUtil.as(Json.JTokenToRuntimeObject(rootToken) , Container);
 
-		
+
 		ResetState ();
-		
+
 
 		// es6 setters/getters
 		#if js
@@ -129,7 +129,7 @@ class Story extends RObject
 		untyped window.Object.defineProperty(this, "variablesState", { get : getVariableesStateProxy  });
 		#end
 	}
-	
+
 	public static function createFromContainer(contentContainer:Container):Story {
 		var me:Story = Type.createEmptyInstance(Story); // new Story();
 		me.setupFromContainer(contentContainer);
@@ -137,52 +137,52 @@ class Story extends RObject
 	}
 	public  inline function setupFromContainer(contentContainer:Container):Void {
 		_mainContentContainer = contentContainer;
-		_externals = new Map<String, ExternalFunction>(); 
+		_externals = new Map<String, ExternalFunction>();
 	}
-	
-	
+
+
 	public function ToJsonString():String
 	{
-		var rootContainerJsonList:Array<Dynamic> = cast Json.RuntimeObjectToJToken(_mainContentContainer);   // (List<object>) 
+		var rootContainerJsonList:Array<Dynamic> = cast Json.RuntimeObjectToJToken(_mainContentContainer);   // (List<object>)
 
 		//var rootObject = new Map<String, Dynamic>();
 	//	rootObject.set ("inkVersion", inkVersionCurrent);
 		//rootObject.set ("root", rootContainerJsonList);
 		//SimpleJson.DictionaryToText(rootObject);   //
-		
+
 		return  haxe.Json.stringify({ inkVersion:inkVersionCurrent, root:rootContainerJsonList});
 	}
-		
+
 
 	public function ResetState():Void
 	{
-		
+
 		_state = new StoryState (this);
-		
+
 		//_state.variablesState.variableChangedEvent += VariableStateDidChangeEvent;  // C_sharp version
 		//this._state.variablesState.ObserveVariableChange(this.VariableStateDidChangeEvent.bind(this));  // inkjs version
 		_state.variablesState.ObserveVariableChange(VariableStateDidChangeEvent);  // haxe version (same as inkjs version)
 
-		
+
 		ResetGlobals ();
-	
+
 	}
-	
+
 	public function ResetErrors():Void
 	{
 		_state.ResetErrors ();
 	}
-	
+
 	public function ResetCallstack():Void
 	{
 		_state.ForceEndFlow ();
 	}
-		
+
 	public function ResetGlobals():Void
 	{
 
 		   if (_mainContentContainer.namedContent.exists ("global decl")) {
-			   
+
 			var originalPath = state.currentPath;
 
 			ChoosePathString ("global decl");
@@ -192,9 +192,9 @@ class Story extends RObject
 			ContinueInternal ();
 
 			state.currentPath = originalPath;
-					
+
 		}
-	
+
 	}
 
     public  function BuildStringOfHierarchy():String //virtual
@@ -208,7 +208,7 @@ class Story extends RObject
 
 		private function NextContent():Void
 		{
-				
+
             // Setting previousContentObject is critical for VisitChangedContainersDueToDivert
             state.previousContentObject = state.currentContentObject;
 
@@ -223,22 +223,22 @@ class Story extends RObject
 
                 // Diverted location has valid content?
                 if (state.currentContentObject != null) {
-				
+
 					//trace("Divert location:"+state.currentContentObject.path.componentsString  + "  ::  "+ (state.previousContentObject!= null ? state.previousContentObject.path.componentsString : "No previousContentObject ..") );
                     return;
                 }
-				
-				
+
+
                 // Otherwise, if diverted location doesn't have valid content,
                 // drop down and attempt to increment.
                 // This can happen if the diverted path is intentionally jumping
                 // to the end of a container - e.g. a Conditional that's re-joining
 			}
-			
-		
+
+
 
             var successfulPointerIncrement:Bool = IncrementContentPointer ();
-		
+
 
             // Ran out of content? Try to auto-exit from a function,
             // or finish evaluating the content of a thread
@@ -247,7 +247,7 @@ class Story extends RObject
                 var didPop = false;
 
                 if (state.callStack.CanPop (PushPopType.Function)) {
-                    
+
                     // Pop from the call stack
                     state.callStack.Pop (PushPopType.Function);
 
@@ -258,7 +258,7 @@ class Story extends RObject
                     }
 
                     didPop = true;
-                } 
+                }
 
                 else if (state.callStack.canPopThread) {
                     state.callStack.PopThread ();
@@ -268,13 +268,13 @@ class Story extends RObject
 
                 // Step past the point where we last called out
                 if (didPop && state.currentContentObject != null) {
-					
+
                     NextContent ();
                 }
 			}
-			
+
 			//if (state.currentContentObject!= null) trace("location:"+state.currentContentObject.path.componentsString  + "  ::  "+ (state.previousContentObject!= null ? state.previousContentObject.path.componentsString : "No previousContentObject ..") );
-				
+
 		}
 
         function IncrementContentPointer():Bool
@@ -305,15 +305,15 @@ class Story extends RObject
 
                 successfulIncrement = true;
             }
-			
-			
-		
+
+
+
             if (!successfulIncrement)
                 currEl.currentContainer = null;
 
             return successfulIncrement;
         }
-            
+
         function TryFollowDefaultInvisibleChoice():Bool
         {
             var allChoices = _state.currentChoices;
@@ -329,7 +329,7 @@ class Story extends RObject
 
             return true;
         }
-            
+
         function VisitCountForContainer( container:Container):Int
         {
             if( !container.visitsShouldBeCounted ) {
@@ -406,13 +406,13 @@ class Story extends RObject
             //  - How many times the runtime has looped around this full shuffle
             var seqPathStr = seqContainer.path.toString();
             var sequenceHash = 0;
-	
+
 			/*
-            for ( c in seqPathStr.split("") ) {  //lazy method 
+            for ( c in seqPathStr.split("") ) {  //lazy method
                 var resultI:Int =  c.charCodeAt(0);
-				
+
 				// tocheck: is this correct as of js versinons? Or issit based off addition of digits?
-				sequenceHash +=  resultI != null && !Math.isNaN(resultI) ? resultI :  0;  
+				sequenceHash +=  resultI != null && !Math.isNaN(resultI) ? resultI :  0;
 				//sequenceHash += c;
             }
 			*/
@@ -440,7 +440,7 @@ class Story extends RObject
             throw new SystemException ("Should never reach here");
         }
 
-	
+
 	// Throw an exception that gets caught and causes AddError to be called,
 	// then exits the flow.
 	function ErrorThrow( message:String,  useEndLineNumber:Bool = false)
@@ -449,9 +449,9 @@ class Story extends RObject
 		e.useEndLineNumber = useEndLineNumber;
 		throw e;
 	}
-	 
-		
-	
+
+
+
 	function AddErrorThrow ( message:String,  useEndLineNumber:Bool)
 	{
 		var dm = currentDebugMetadata;
@@ -469,13 +469,13 @@ class Story extends RObject
 		// In a broken state don't need to know about any other errors.
 		state.ForceEndFlow ();
 	}
-	
+
 	var currentDebugMetadata(get, null):DebugMetadata;
-	function get_currentDebugMetadata():DebugMetadata 
+	function get_currentDebugMetadata():DebugMetadata
 	{
 		var dm:DebugMetadata;
 
-		
+
 		// Try to get from the current path first
 		var currentContent = state.currentContentObject;
 		if (currentContent!=null) {
@@ -484,11 +484,11 @@ class Story extends RObject
 				return dm;
 			}
 		}
-			
+
 		var i:Int;
-		
+
 		// Move up callstack if possible
-		
+
 		//int i = state.callStack.elements.Count - 1; i >= 0; --i
 		i = state.callStack.elements.length - 1;
 		while (i>=0) {
@@ -498,12 +498,12 @@ class Story extends RObject
 			}
 			--i;
 		}
-		
+
 
 		// Current/previous path may not be valid if we've just had an error,
 		// or if we've simply run out of content.
 		// As a last resort, try to grab something from the output stream
-		
+
 		//int i = state.outputStream.Count - 1; i >= 0; --i
 		i = state.outputStream.length -1;
 		while (i>=0) {
@@ -518,16 +518,16 @@ class Story extends RObject
 		return null;
 	}
 
-	
+
 
 	function VariableStateDidChangeEvent( variableName:String, newValueObj:RObject):Void
 	{
 		if (_variableObservers == null)
 			return;
-		
+
 		var observers:VariableObserver = null;
 		observers = _variableObservers.get(variableName);
-		
+
 		if (observers!=null) {  //_variableObservers.TryGetValue (variableName, out observers)
 
 			if (!(Std.is(newValueObj, Value)) )  {
@@ -538,10 +538,49 @@ class Story extends RObject
 			observers(variableName, val.valueObject);
 		}
 	}
-	
-	
-	
-	
+
+	public var globalTags(get, never): List<String>;
+
+	inline function get_globalTags()
+		return TagsAtStartOfFlowContainerWithPathString('');
+
+	public function TagsForContentAtPath( path: String )
+		return TagsAtStartOfFlowContainerWithPathString(path);
+
+	public function TagsAtStartOfFlowContainerWithPathString( pathString: String ) : List<String> {
+		var path = Path.createFromString(pathString);
+
+		var flowContainer = LibUtil.as(ContentAtPath(path), Container);
+
+		if (flowContainer != null) {
+			while (true) {
+				var firstContent = flowContainer.content[0];
+
+				if (Std.is(firstContent, Container)) {
+					flowContainer = LibUtil.as(firstContent, Container);
+				} else {
+					break;
+				}
+			}
+		}
+
+		var tags: List<String> = null;
+
+		for (c in flowContainer.content) {
+			var tag = LibUtil.as(c, Tag);
+
+			if (tag != null) {
+				if (tags == null) {
+					tags = new List<String>();
+				}
+
+				tags.push(tag.text);
+			}
+		}
+
+		return tags;
+	}
+
 	public function Continue():String
 	{
 		// TODO: Should we leave this to the client, since it could be
@@ -553,7 +592,7 @@ class Story extends RObject
 		return ContinueInternal ();
 	}
 
-	
+
 	function ContinueInternal():String
 	{
 		if (!canContinue) {
@@ -565,12 +604,12 @@ class Story extends RObject
 		_state.didSafeExit = false;
 
 		_state.variablesState.batchObservingVariableChanges = true;
-	
+
 		//_previousContainer = null;
 
-		
+
 		// I'd rather leave it uncaught so i can see stacktrace better, even though it'll kill the app basically.
-		//try {  
+		//try {
 
 			var stateAtLastNewline:StoryState = null;
 
@@ -584,15 +623,15 @@ class Story extends RObject
 			//    which are actually built out of text content.
 			// So we have to take a snapshot of the state, continue prospectively,
 			// and rewind if necessary.
-			// This code is slightly fragile :-/ 
+			// This code is slightly fragile :-/
 			//
-		
+
 			var count:Int = 0;
 			do {
 
 				if (count++ > 99999) throw "Count iteration limit reached";
-			
-				
+
+
 				// Run main step function (walks through content)
 				Step();
 
@@ -603,7 +642,7 @@ class Story extends RObject
 
 				// Don't save/rewind during string evaluation, which is e.g. used for choices
 				if( !state.inStringEvaluation ) {
-						
+
 					// We previously found a newline, but were we just double checking that
 					// it wouldn't immediately be removed by glue?
 					if( stateAtLastNewline != null ) {
@@ -612,12 +651,18 @@ class Story extends RObject
 						var currText = currentText;
 						var prevTextLength:Int = stateAtLastNewline.currentText.length;
 
+						// Take tags into account too, so that a tag following a content line:
+						//   Content
+						//   # tag
+						// ... doesn't cause the tag to be wrongly associated with the content above.
+						var prevTagCount = stateAtLastNewline.currentTags.length;
+
 						// Output has been extended?
-						if( !(currText == stateAtLastNewline.currentText) ) {  // !currText.Equals(stateAtLastNewline.currentText) 
+						if( !(currText == stateAtLastNewline.currentText) || prevTagCount != currentTags.length ) {  // !currText.Equals(stateAtLastNewline.currentText)
 
 							// Original newline still exists?
 							if( currText.length >= prevTextLength && currText.charAt(prevTextLength-1) == '\n' ) {
-								
+
 								RestoreStateSnapshot(stateAtLastNewline);
 								break;
 							}
@@ -638,11 +683,11 @@ class Story extends RObject
 						// We're going to continue stepping in case we see glue or some
 						// non-text content such as choices.
 						if ( canContinue ) {
-							
+
 							stateAtLastNewline = StateSnapshot();
-							
-							
-						} 
+
+
+						}
 
 						// Can't continue, so we're about to exit - make sure we
 						// don't have an old state hanging around.
@@ -683,34 +728,34 @@ class Story extends RObject
 			}
 
 
-		//} 
-		//catch ( e:StoryException) {  
+		//}
+		//catch ( e:StoryException) {
 		//	AddErrorThrow (e.msg, e.useEndLineNumber);
-		//} 
-		
+		//}
+
 		//finally {
-			
+
 			state.didSafeExit = false;
 
 			_state.variablesState.batchObservingVariableChanges = false;
 		//}
-	
-		
-	
-		
+
+
+
+
 		return currentText;
 	}
 
-	
-	//@:getter(canContinue) 
+
+	//@:getter(canContinue)
 	public var canContinue(get, null):Bool;
-	function get_canContinue():Bool 
+	function get_canContinue():Bool
 	{
 		return state.currentContentObject != null && !state.hasError;
 	}
-      
 
-        
+
+
 	public function ContinueMaximally():String
 	{
 		var sb = new StringBuf ();
@@ -721,13 +766,13 @@ class Story extends RObject
 
 		return sb.toString ();
 	}
-	
+
 	public function ContentAtPath(path:Path):RObject
 	{
-		
+
 		return mainContentContainer.ContentAtPath (path);
 	}
-	
+
 	function StateSnapshot():StoryState
 	{
 		return state.Copy ();
@@ -737,7 +782,7 @@ class Story extends RObject
 	{
 		_state = state;
 	}
-		
+
 	function Step ()
 	{
 		var shouldAddToStream = true;
@@ -747,7 +792,7 @@ class Story extends RObject
 		if (currentContentObj == null) {
 			return;
 		}
-			
+
 		// Step directly to the first element of content in a container (if necessary)
 		var currentContainer = LibUtil.as(currentContentObj , Container);
 		while(currentContainer!=null) {
@@ -765,7 +810,7 @@ class Story extends RObject
 
 			currentContainer = LibUtil.as(currentContentObj , Container);
 		}
-	
+
 		currentContainer = state.callStack.currentElement.currentContainer;
 
 		// Is the current content object:
@@ -787,7 +832,7 @@ class Story extends RObject
 		// Choice with condition?
 		var choicePoint = LibUtil.as(currentContentObj , ChoicePoint);
 		if (choicePoint != null) {
-			
+
 			var choice = ProcessChoice (choicePoint);
 			if (choice!=null) {
 				state.currentChoices.add (choice);
@@ -805,8 +850,8 @@ class Story extends RObject
 
 		// Content to add to evaluation stack or the output stream
 		if (shouldAddToStream) {
-				
-			
+
+
 			// If we're pushing a variable pointer onto the evaluation stack, ensure that it's specific
 			// to our current (possibly temporary) context index. And make a copy of the pointer
 			// so that we're not editing the original runtime object.
@@ -830,7 +875,7 @@ class Story extends RObject
 
 		// Increment the content pointer, following diverts if necessary
 		NextContent ();
-	
+
 		// Starting a thread should be done after the increment to the content pointer,
 		// so that when returning from the thread, it returns to the content after this instruction.
 		var controlCmd = LibUtil.as( currentContentObj , ControlCommand);
@@ -851,9 +896,9 @@ class Story extends RObject
 				RecordTurnIndexVisitToContainer (container);
 		}
 	}
-	
-	
-            
+
+
+
 	function ProcessChoice( choicePoint:ChoicePoint):Choice
 	{
 		var showChoice = true;
@@ -886,7 +931,7 @@ class Story extends RObject
 				showChoice = false;
 			}
 		}
-			
+
 		var choice =  Choice.create(choicePoint);
 		choice.threadAtGeneration = state.callStack.currentThread.Copy ();
 
@@ -912,7 +957,7 @@ class Story extends RObject
 			//var val:Value = cast obj; //(Value)
 			//var val:Dynamic = obj;
 			var val = LibUtil.as(obj, Value);
-			
+
 			if (Std.is(val, DivertTargetValue) ) {
 				var divTarget:DivertTargetValue = cast val;
 				ErrorThrow ("Shouldn't use a divert target (to " + divTarget.targetPath + ") as a conditional value. Did you intend a function call 'likeThis()' or a read count check 'likeThis'? (no arrows)");
@@ -923,20 +968,20 @@ class Story extends RObject
 		}
 		return truthy;
 	}
-	
-	
+
+
 	function PerformLogicAndFlowControl( contentObj:RObject):Bool
 	{
-		
+
 		if( contentObj == null ) {
 			return false;
 		}
 
 		// Divert
 		if ( Std.is(contentObj ,Divert) ) {
-			
+
 			var currentDivert:Divert = cast contentObj; //(Divert)
-			
+
 			if (currentDivert.isConditional) {
 				var conditionValue = state.PopEvaluationStack ();
 
@@ -944,10 +989,10 @@ class Story extends RObject
 				if (!IsTruthy (conditionValue))
 					return true;
 			}
-			
+
 			if (currentDivert.hasVariableTarget) {
 				var varName = currentDivert.variableDivertName;
-				
+
 				var varContents = state.variablesState.GetVariableWithName (varName);
 
 				if (!( Std.is(varContents , DivertTargetValue))) {
@@ -979,7 +1024,7 @@ class Story extends RObject
 			}
 
 			if (state.divertedTargetObject == null && !currentDivert.isExternal) {
-				
+
 				// Human readable name available - runtime divert is part of a hard-written divert that to missing content
 				if (currentDivert!= null && currentDivert.debugMetadata.sourceName != null) {
 					ErrorThrow ("Divert target doesn't exist: " + currentDivert.debugMetadata.sourceName);
@@ -989,7 +1034,7 @@ class Story extends RObject
 			}
 
 			return true;
-		} 
+		}
 
 		// Start/end an expression evaluation? Or print out the result?
 		else if( Std.is(contentObj , ControlCommand) ) {
@@ -1010,7 +1055,7 @@ class Story extends RObject
 
 				// If the expression turned out to be empty, there may not be anything on the stack
 				if (state.evaluationStack.length > 0) {
-					
+
 					var output = state.PopEvaluationStack ();
 
 					// Functions may evaluate to Void, in which case we skip output
@@ -1041,7 +1086,7 @@ class Story extends RObject
 
 				var popType:Int = evalCommand.commandType == ControlCommand.CommandType.PopFunction ?
 					cast PushPopType.Function : cast PushPopType.Tunnel;
-				
+
 				if ( (cast state.callStack.currentElement.type) != popType || !state.callStack.canPop) {
 
 					var names = new IntMap<String> ();
@@ -1056,7 +1101,7 @@ class Story extends RObject
 					var errorMsg = "Found " + names.get(popType) + ", when expected " + expected;
 
 					ErrorThrow (errorMsg);
-				} 
+				}
 
 				else {
 					state.callStack.Pop ();
@@ -1071,17 +1116,17 @@ class Story extends RObject
 				//break;
 
 			case ControlCommand.CommandType.EndString:
-				
+
 				// Since we're iterating backward through the content,
 				// build a stack so that when we build the string,
 				// it's in the right order
 				var contentStackForString = new GenericStack<RObject> ();
 
 				var outputCountConsumed = 0;
-				
+
 				//int i = state.outputStream.Count - 1; i >= 0; --i
 				var i:Int = state.outputStream.length - 1;
-				
+
 				while (i>=0) {
 					var obj = state.outputStream [i];
 
@@ -1092,9 +1137,9 @@ class Story extends RObject
 						break;
 					}
 
-					if( Std.is(obj ,StringValue) ) 
+					if( Std.is(obj ,StringValue) )
 						contentStackForString.add (obj);
-						
+
 					i--;  // continuing..
 				}
 
@@ -1149,14 +1194,14 @@ class Story extends RObject
 				//break;
 
 			case ControlCommand.CommandType.Done:
-				
+
 				// We may exist in the context of the initial
 				// act of creating the thread, or in the context of
 				// evaluating the content.
-				
+
 				if (state.callStack.canPopThread) {
 					state.callStack.PopThread ();
-				} 
+				}
 
 				// In normal flow - allow safe exit without warning
 				else {
@@ -1164,12 +1209,56 @@ class Story extends RObject
 				}
 
 				//break;
-			
+
 			// Force flow to end completely
 			case ControlCommand.CommandType.End:
 				state.ForceEndFlow ();
 				//break;
 
+			case ControlCommand.CommandType.Random:
+				var maxInt = LibUtil.as(state.PopEvaluationStack(), IntValue);
+				var minInt = LibUtil.as(state.PopEvaluationStack(), IntValue);
+
+				if (minInt == null) {
+					ErrorThrow('Invalid value for minimum parameter of RANDOM(min, max)');
+				}
+
+				if (maxInt == null) {
+					ErrorThrow('Invalid value for maximum parameter of RANDOM(min, max)');
+
+				}
+
+				// // +1 because it's inclusive of min and max, for e.g. RANDOM(1,6) for a dice roll.
+				var randomRange = maxInt.value - minInt.value + 1;
+				if (randomRange <= 0) {
+					ErrorThrow('RANDOM was called with minimum as ${minInt.value} and maximum as ${maxInt.value}. The maximum must be larger.');
+				}
+
+				var resultSeed = state.storySeed + state.previousRandom;
+				// var rnr = ink.random.Random.randRange(minInt, maxInt);
+
+				// var nextRandom = random.Next ();
+				// var chosenValue = (nextRandom % randomRange) + minInt.value;
+				// state.PushEvaluationStack (new IntValue (chosenValue));
+
+				// // Next random number (rather than keeping the Random object around)
+				// state.previousRandom = nextRandom;
+				// break;
+
+
+			case ControlCommand.CommandType.SeedRandom:
+				var seed = LibUtil.as(state.PopEvaluationStack(), IntValue);
+
+				if (seed == null) {
+					ErrorThrow('Invalid value passed to SEED_RANDOM');
+				}
+
+				// Story seed affects both RANDOM and shuffle behaviour
+				state.storySeed = seed.value;
+				state.previousRandom = 0;
+
+				// SEED_RANDOM returns nothing.
+				state.PushEvaluationStack(new VoidObj());
 			default:
 				ErrorThrow ("unhandled ControlCommand: " + evalCommand);
 				//break;
@@ -1177,10 +1266,10 @@ class Story extends RObject
 
 			return true;
 		}
-		
+
 		// Variable assignment
 		else if ( Std.is(contentObj , VariableAssignment) ) {
-			
+
 			var varAss:VariableAssignment= cast contentObj;  //(VariableAssignment)
 			var assignedVal = state.PopEvaluationStack();
 
@@ -1195,7 +1284,7 @@ class Story extends RObject
 
 		// Variable reference
 		else if ( Std.is( contentObj , VariableReference) ) {
-			
+
 			var varRef:VariableReference = cast contentObj; //(VariableReference)
 			var foundValue:RObject = null;
 
@@ -1206,20 +1295,20 @@ class Story extends RObject
 				var container = varRef.containerForCount;
 				var count:Int = VisitCountForContainer (container);
 				foundValue = new IntValue (count);
-				
+
 			}
 
 			// Normal variable reference
 			else {
-	
+
 				foundValue = state.variablesState.GetVariableWithName (varRef.name);
-				
+
 				if (foundValue == null) {
 					ErrorThrow("Uninitialised variable: " + varRef.name);
 					foundValue = new IntValue (0);
 				}
 			}
-			
+
 			state.evaluationStack.push( foundValue );
 
 			return true;
@@ -1229,30 +1318,30 @@ class Story extends RObject
 		else if( Std.is(contentObj , NativeFunctionCall) ) {
 			var func:NativeFunctionCall = cast contentObj; //(NativeFunctionCall)
 			var funcParams = state.PopEvaluationStack1(func.numberOfParameters);
-			
+
 			var result = func.Call(LibUtil.arrayToList(funcParams));
 			state.evaluationStack.push(result);
 			return true;
 		}
-	
+
 		// No control content, must be ordinary content
 		return false;
 	}
-	
+
 	public function ChoosePathString( path:String):Void
 	{
 		ChoosePath ( Path.createFromString(path));
 	}
-		
+
 	public function  ChoosePath( path:Path):Void
 	{
-	
+
 		state.SetChosenPath (path);
 
 		// Take a note of newly visited containers for read counts etc
 		VisitChangedContainersDueToDivert ();
 	}
-	
+
 	function VisitChangedContainersDueToDivert():Void
         {
             var previousContentObject = state.previousContentObject;
@@ -1260,15 +1349,15 @@ class Story extends RObject
 
             if (!(newContentObject!=null))
                 return;
-            
+
             // First, find the previously open set of containers
             var prevContainerSet = new HashSet<Container>();
             if (previousContentObject!=null) {
                 var prevAncestor:Container = Std.is(previousContentObject , Container) ? LibUtil.as(previousContentObject, Container) : LibUtil.as(previousContentObject.parent, Container);
-				
+
                 while (prevAncestor!=null) {
                     prevContainerSet.add (prevAncestor);
-				
+
                     prevAncestor = LibUtil.as( prevAncestor.parent, Container);
                 }
             }
@@ -1281,7 +1370,7 @@ class Story extends RObject
 
                 // Check whether this ancestor container is being entered at the start,
                 // by checking whether the child object is the first.
-                var enteringAtStart:Bool = currentContainerAncestor.content.length > 0 
+                var enteringAtStart:Bool = currentContainerAncestor.content.length > 0
                     && currentChildOfContainer == currentContainerAncestor.content [0];
 
                 // Mark a visit to this container
@@ -1291,14 +1380,14 @@ class Story extends RObject
                 currentContainerAncestor = LibUtil.as(currentContainerAncestor.parent , Container);
             }
         }
-		
-		
 
-	
-	
-		
+
+
+
+
+
 	public var mainContentContainer(get, null):Container;
-	function get_mainContentContainer():Container 
+	function get_mainContentContainer():Container
 	{
 		if (_temporaryEvaluationContainer!=null) {
 			return _temporaryEvaluationContainer;
@@ -1306,17 +1395,17 @@ class Story extends RObject
 			return _mainContentContainer;
 		}
 	}
-	
-	
+
+
 	var _mainContentContainer:Container;
-	
+
 	var _externals: Map<String, ExternalFunction>;
 	var _variableObservers:Map<String, VariableObserver>;
 	var _hasValidatedExternals:Bool;
-	
+
 	var _temporaryEvaluationContainer:Container;
 
-	
+
 	/// <summary>
 	/// Chooses the Choice from the currentChoices list with the given
 	/// index. Internally, this sets the current content path to that
@@ -1327,7 +1416,7 @@ class Story extends RObject
 		var choices = currentChoices;
 		Assert.bool(choiceIdx >= 0 && choiceIdx < choices.length, "choice out of range");
 
-		// Replace callstack with the one from the thread at the choosing point, 
+		// Replace callstack with the one from the thread at the choosing point,
 		// so that we can jump into the right place in the flow.
 		// This is important in case the flow was forked by a new thread, which
 		// can create multiple leading edges for the story, each of
@@ -1393,7 +1482,7 @@ class Story extends RObject
 		}
 
 		// We'll start a new callstack, so keep hold of the original,
-		// as well as the evaluation stack so we know if the function 
+		// as well as the evaluation stack so we know if the function
 		// returned something
 		var originalCallstack = state.callStack;
 		int originalEvaluationStackHeight = state.evaluationStack.Count;
@@ -1433,7 +1522,7 @@ class Story extends RObject
 
 		// Do we have a returned value?
 		// Potentially pop multiple values off the stack, in case we need
-		// to clean up after ourselves (e.g. caller of EvaluateFunction may 
+		// to clean up after ourselves (e.g. caller of EvaluateFunction may
 		// have passed too many arguments, and we currently have no way to check for that)
 		Runtime.Object returnedObj = null;
 		while (state.evaluationStack.Count > originalEvaluationStackHeight) {
@@ -1497,8 +1586,8 @@ class Story extends RObject
 
 	}
 	*/
-		
-		
+
+
 
 
 
@@ -1513,7 +1602,7 @@ class Story extends RObject
         /// testing a story in playmode, when it's not possible to write a client-side C# external
         /// function, but you don't want it to fail to run.
         /// </summary>
-      
+
 
 		public function CallExternalFunction( funcName:String,  numberOfArguments:Int):Void
         {
@@ -1549,7 +1638,7 @@ class Story extends RObject
             // Reverse arguments from the order they were popped,
             // so they're the right way round again.
             arguments.reverse();  //arguments.Reverse ();
-			
+
 
             // Run the function!
             var funcResult:Dynamic = func (arguments);  //arguments.ToArray()
@@ -1562,16 +1651,16 @@ class Story extends RObject
             } else {
                 returnObj = new VoidObj();
             }
-                
+
             state.PushEvaluationStack (returnObj);
         }
 
 
-		
+
 
 		inline
 		function TryCoerce<T>(value:Dynamic):Dynamic	// is this really needed since already returning Dynamic?? Engine/haxe will hopefully coerce if necessary...
-        {  
+        {
 			/*
 			var casted:T;
             if (value == null)
@@ -1605,12 +1694,12 @@ class Story extends RObject
 
             return null;
 			*/
-			
+
 			return value;// vakyel
         }
 
-	
-		
+
+
         /// <summary>
         /// General purpose delegate definition for bound EXTERNAL function definitions
         /// from ink. Note that this version isn't necessary if you have a function
@@ -1618,7 +1707,7 @@ class Story extends RObject
         /// </summary>
         //public delegate object ExternalFunction(object[] args);
 		//typedef ExternalFunction:Array->Dynamic;
-		
+
 
         /// <summary>
         /// Most general form of function binding that returns an object
@@ -1636,7 +1725,7 @@ class Story extends RObject
 
         // Convenience overloads for standard functions and actions of various arities
         // Is there a better way of doing this?!
-	
+
 		// Haxe doesn't allow overloading, so must explicitly specify the number of params or use BindExternalFunctionGeneral!
 
         /// <summary>
@@ -1754,12 +1843,12 @@ class Story extends RObject
                 }
             }
         }
-		
-		
+
+
 		// Added (Glidias)
-		// Untested method atm..to use when you gotta need it. 
+		// Untested method atm..to use when you gotta need it.
 		// You can try to use this to Reflect required external bindings of current Story to a HashSet
-		
+
 		 /// <summary>
         /// Check for all EXTERNAL ink functions and apply it to an array of strings! Useful to automate auto-binding process to your own library of methods.
 		///  The automation process to link the list of methods are left up to you.
@@ -1795,6 +1884,6 @@ class Story extends RObject
 				array.push(divert.targetPathString);
             }
         }
-	
-	
+
+
 }

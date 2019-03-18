@@ -36,18 +36,18 @@ class ValueType
 class Value<T> extends RObject
 {
 	public var value:T;
-	
+
 	public  var valueType(get, null):ValueType;// { get; }
 	public  var isTruthy(get, null):Bool; //{ get; }
 
-	public function Cast<T>(newType:ValueType):Value<T> { 
+	public function Cast<T>(newType:ValueType):Value<T> {
 		return null;
 	}
 
 	public var valueObject(get, null):Dynamic; // { get; }
-	
 
-	
+
+
 	public static function Create<T>(val:Dynamic):Value<T>
 	{
 		// Implicitly lose precision from any doubles we get passed in
@@ -63,7 +63,7 @@ class Value<T> extends RObject
 			var b:Bool = cast val;
 			val = Std.int(b ? 1 : 0);
 		}
-		
+
 		// return converted instance
 		if ( Std.is(val, Int)) {
 			//if (val == "\n") throw "newline character treated as integer engine problem uncaught!!";
@@ -79,60 +79,60 @@ class Value<T> extends RObject
 
 		return null;
 	}
-	
+
 
 	public override function Copy():RObject
 	{
 		return Create(valueObject);
 	}
 
-		
+
 	public function new(val:T) {
 		super();
 		value = val;
 
 	}
-  
-  	public function ToString():String
+
+  	@:keep public function ToString():String
 	{
 		return Std.string(value);
 	}
-	
-	public function toString():String {
+
+	@:keep public function toString():String {
 		return ToString();
 	}
 
-  
+
   // absract boilerplate
-  function get_valueType():ValueType 
+  function get_valueType():ValueType
   {
 	  return valueType;
   }
-  
-  function get_isTruthy():Bool 
+
+  function get_isTruthy():Bool
   {
 	  return isTruthy;
   }
-  
-  function get_valueObject():Dynamic 
+
+  function get_valueObject():Dynamic
   {
 	  return value;
   }
-  
-  
+
+
 }
 
 
 class IntValue extends Value<Int> {
-	
+
 	public override function get_valueType():ValueType  { return ValueType.IntType; }
     public override function get_isTruthy():Bool { return value != 0; }
 
-		
+
 	public function new(val:Int=0) {
 		super(val);
 	}
-	
+
 	public override function Cast<T>( newType:ValueType):Value<T>
 	{
 		if (newType == valueType) {
@@ -149,9 +149,9 @@ class IntValue extends Value<Int> {
 
 		throw new SystemException ("Unexpected type cast of Value to new ValueType");
 	}
-	
 
-	
+
+
 }
 
 class FloatValue extends Value<Float> {
@@ -159,7 +159,7 @@ class FloatValue extends Value<Float> {
 		super(val);
 	}
 
-	
+
 	public override function Cast<T>( newType:ValueType):Value<T>
 	{
 		if (newType == valueType) {
@@ -176,21 +176,21 @@ class FloatValue extends Value<Float> {
 
 		throw new SystemException ("Unexpected type cast of Value to new ValueType");
 	}
-	
-	
+
+
 }
 
 
 class StringValue extends Value<String> {  // DONE!
-	
+
 	//     public StringValue() : this("") {}
 	  // public StringValue(string str) : base(str)
        // {
-          
+
        // }
 	   public function new(val:String="") {
 		super(val);
-		
+
 		  // Classify whitespace status
 		isNewline = value == "\n";
 		isInlineWhitespace = true;
@@ -204,14 +204,14 @@ class StringValue extends Value<String> {  // DONE!
 		}
 
 	}
-	
-	override function get_valueType():ValueType 
+
+	override function get_valueType():ValueType
 	  {
 		  return ValueType.StringType;
 	  }
-	    override function get_isTruthy():Bool 
+	    override function get_isTruthy():Bool
 	  {
-		  
+
 		  return  value.length > 0;
 	  }
 
@@ -219,7 +219,7 @@ class StringValue extends Value<String> {  // DONE!
         public var isNewline:Bool;   // { get; private set; }
         public var isInlineWhitespace:Bool; //{ get; private set; }
         public var isNonWhitespace(get, null):Bool;
-		 function get_isNonWhitespace():Bool 
+		 function get_isNonWhitespace():Bool
 		{
 			return !isNewline && !isInlineWhitespace;
 		}
@@ -245,7 +245,7 @@ class StringValue extends Value<String> {  // DONE!
             if (newType == FloatType) {
                 //var parsedFloat:Float;
 				tryVal = LibUtil.tryParseFloat(value);
-				
+
                 if (tryVal!=null) {
                     return cast new FloatValue( tryVal);
                 } else {
@@ -255,37 +255,37 @@ class StringValue extends Value<String> {  // DONE!
 
             throw new SystemException ("Unexpected type cast of Value to new ValueType");
         }
-		
-		
+
+
 }
 
 class DivertTargetValue extends Value<Path> {  // DONE!
 	public function new(val:Path=null) {
 		super(val);
 	}
-	
+
 	public var targetPath(get, set):Path;   // { get { return this.value; } set { this.value = value; } }
-    function get_targetPath():Path 
+    function get_targetPath():Path
 	{
 		return this.value;
 	}
-	
-	function set_targetPath(value:Path):Path 
+
+	function set_targetPath(value:Path):Path
 	{
 		return (this.value = value);
 	}
-	
+
 	public override function get_valueType():ValueType  { return ValueType.DivertTarget; }
 
 	 override function get_isTruthy():Bool {  throw new SystemException("Shouldn't be checking the truthiness of a divert target"); return false; }
-	
-	
-	
+
+
+
 	public override function Cast<T>( newType:ValueType):Value<T>
 	{
 		if (newType == valueType)
 			return cast this;
-		
+
 		throw new SystemException ("Unexpected type cast of Value to new ValueType");
 	}
 
@@ -293,27 +293,27 @@ class DivertTargetValue extends Value<Path> {  // DONE!
 	{
 		return "DivertTargetValue(" + targetPath + ")";
 	}
-		
+
 }
 
  // TODO: Think: Erm, I get that this contains a string, but should
  // we really derive from Value<string>? That seems a bit misleading to me.
 class VariablePointerValue extends Value<String> {  // DONE!
 
-	
+
 	public var variableName(get, set):String;
-	function get_variableName():String 
+	function get_variableName():String
 	{
 		 return this.value;
 	}
-	
-	function set_variableName(value:String):String 
+
+	function set_variableName(value:String):String
 	{
 		return ( this.value = value);
 	}
     public override  function get_valueType():ValueType {  return ValueType.VariablePointer;  }
     public override  function get_isTruthy() {   throw new SystemException("Shouldn't be checking the truthiness of a variable pointer");  return false;  }
-	
+
 	public var contextIndex:Int;
 
 	// is this conversion correct?
@@ -331,8 +331,8 @@ class VariablePointerValue extends Value<String> {  // DONE!
 		super(variableName);
 		this.contextIndex = contextIndex;
 	}
-	
-	
+
+
 	  public override function Cast<T>( newType:ValueType):Value<T>
         {
             if (newType == valueType)
@@ -341,17 +341,17 @@ class VariablePointerValue extends Value<String> {  // DONE!
             throw new SystemException("Unexpected type cast of Value to new ValueType");
         }
 
-		
+
 	public override function ToString():String
 	{
 		return "VariablePointerValue(" + variableName + ")";
 	}
-	
+
 	public override function Copy():RObject
 	{
 		return new VariablePointerValue (variableName, contextIndex);
 	}
-	
-	
+
+
 
 }
