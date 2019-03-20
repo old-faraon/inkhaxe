@@ -24,7 +24,7 @@ typedef VariableObserver = String->Dynamic->Void;
 @:expose
 class Story extends RObject
 {
-	static public inline var inkVersionCurrent:Int = 17;
+	static public inline var inkVersionCurrent:Int = 19;
 	public static inline var inkVersionMinimumCompatible:Int = 12;
 
 
@@ -88,12 +88,12 @@ class Story extends RObject
 
 
 
-	public function new(jsonString:String)
+	public function new(rootObject:Dynamic)
 	{
 		super();
 		setupFromContainer(null);
 
-		var rootObject:Dynamic = haxe.Json.parse(jsonString); // StringMap<Dynamic> = LibUtil.jTokenToStringMap( haxe.Json.parse(jsonString) ); // SimpleJson.TextToDictionary(jsonString);
+//		var rootObject:Dynamic = haxe.Json.parse(jsonString); // StringMap<Dynamic> = LibUtil.jTokenToStringMap( haxe.Json.parse(jsonString) ); // SimpleJson.TextToDictionary(jsonString);
 
 		var versionObj:Dynamic = Reflect.field(rootObject, "inkVersion");
 		if (versionObj == null)
